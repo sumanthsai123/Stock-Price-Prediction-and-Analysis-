@@ -34,11 +34,11 @@ def register():
 
         if not new_username or not new_email or not new_password:
             flash("All fields are required.", "error")
-            return redirect(url_for("register"))
+            return render_template("login.html", show_register=True)
 
         if new_username in USER_CREDENTIALS:
             flash("Username already exists.", "error")
-            return redirect(url_for("register"))
+            return render_template("login.html", show_register=True)
 
         # Assign "user" role to new users
         USER_CREDENTIALS[new_username] = {"password": new_password, "email": new_email, "role": "user"}
@@ -46,7 +46,7 @@ def register():
         flash("Registration successful! Please login.", "success")
         return redirect(url_for("login"))
 
-    return render_template("login.html")
+    return render_template("login.html", show_register=True)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -109,6 +109,10 @@ def index():
             flash("Please enter a valid stock ID.", "error")
             return redirect(url_for("index"))
 
+        if "," in stock or len(stock.split()) > 1:
+            flash("Please enter a single ticker symbol, not comma-separated or multiple symbols.", "error")
+            return redirect(url_for("index"))
+
         session["stock_id"] = stock
         return redirect(url_for("results"))
 
@@ -145,21 +149,33 @@ def results():
         print(f"Fetched Data for {stock} ({entity_type}): {df.tail()}")
 
         if df.empty:
-          return render_template("results.html", error_message=f"No data found for {entity_type} '{stock}'.")
+            return render_template("results.html", error_message=f"No data found for {entity_type} '{stock}'.")
+
+        if 'Close' not in df.columns:
+            return render_template("results.html", error_message=f"No Close price data available for '{stock}'.")
 
         Close_price = df['Close']
+        if isinstance(Close_price, pd.DataFrame):
+            if Close_price.shape[1] > 1:
+                return render_template("results.html", error_message="Multiple tickers were detected. Please enter a single ticker symbol.")
+            Close_price = Close_price.iloc[:, 0]
+
+        Close_price = Close_price.dropna()
+        if len(Close_price) < 101:
+            return render_template("results.html", error_message=f"Not enough historical data for '{stock}'. Please try a different ticker.")
+
         scaler = MinMaxScaler(feature_range=(0, 1))
         scaled_data = scaler.fit_transform(Close_price.values.reshape(-1, 1))
         print(f"Scaled Data for {stock}: {scaled_data[-5:]}")
 
-        # Prepare data for model prediction
-        x_data = []
-        for i in range(100, len(scaled_data)):
-            x_data.append(scaled_data[i - 100:i])
-        x_data = np.array(x_data)
+        x_data = [scaled_data[i - 100:i] for i in range(100, len(scaled_data))]
+        x_data = np.asarray(x_data, dtype=np.float32)
+        if x_data.ndim != 3 or x_data.shape[1:] != (100, 1):
+            return render_template("results.html", error_message="Failed to prepare model input data correctly. Please try a different ticker.")
 
         predicted_scaled = model.predict(x_data)
         predicted_prices = scaler.inverse_transform(predicted_scaled)
+        predicted_prices = predicted_prices.flatten()
         print(f"Predicted Prices for {stock}: {predicted_prices[-5:]}")
 
         # Actual vs Predicted Prices Plot
@@ -182,11 +198,14 @@ def results():
 
         for _ in range(10):
             next_day_pred = model.predict(last_100_days)
-            prediction_10_days.append(next_day_pred)
-            last_100_days = np.append(last_100_days[:, 1:, :], next_day_pred.reshape(1, 1, 1), axis=1)
+            next_day_value = float(next_day_pred[0, 0])
+            prediction_10_days.append(next_day_value)
+            next_100 = np.array(next_day_value, dtype=np.float32).reshape(1, 1, 1)
+            last_100_days = np.concatenate([last_100_days[:, 1:, :], next_100], axis=1)
 
-        prediction_10_days = np.array(prediction_10_days).reshape(-1, 1)
+        prediction_10_days = np.array(prediction_10_days, dtype=np.float32).reshape(-1, 1)
         prediction_10_days = scaler.inverse_transform(prediction_10_days)
+        prediction_10_days = prediction_10_days.flatten()
 
         last_date = df.index[-1]
         next_10_days = pd.date_range(last_date + pd.DateOffset(days=1), periods=10)
@@ -194,9 +213,9 @@ def results():
 
         fig, ax = plt.subplots(figsize=(10, 6))
 
-         # Ensure the next day's predicted price is plotted as a line instead of a single dot
+        # Ensure the next day's predicted price is plotted as a line instead of a single dot
         ax.plot([df.index[-1], next_10_days[0]], [Close_price.iloc[-1], prediction_10_days[0]], 
-        marker='o', linestyle='-', color='red', label="Next Day Prediction")
+                marker='o', linestyle='-', color='red', label="Next Day Prediction")
 
         ax.set_title(f"{stock} Next Day Prediction")
         ax.set_xlabel("Date")
@@ -204,19 +223,15 @@ def results():
         ax.legend()
         plt.grid(True)
 
-
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
         ax.xaxis.set_major_locator(mdates.DayLocator())
-        plt.xticks(rotation=30) 
+        plt.xticks(rotation=30)
         buf = BytesIO()
         plt.savefig(buf, format="png")
         buf.seek(0)
         next_day_plot = base64.b64encode(buf.getvalue()).decode("utf-8")
         buf.close()
 
-        
-                
-        
         # Next 10 Days Prediction Graph
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.plot(next_10_days, prediction_10_days, label="Predicted Prices", color="purple")
@@ -230,8 +245,7 @@ def results():
         buf.seek(0)
         next_10_days_plot = base64.b64encode(buf.getvalue()).decode("utf-8")
         buf.close()
-    
-        
+
         # Closing Price Plot
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.plot(df.index, Close_price, label="Closing Prices", color="blue")

@@ -14,38 +14,64 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
               {% for category, message in messages %}
-                <p style="color: white; font-weight: bold;">{{ message }}</p>
+                <p class="flash-message {{ category }}">{{ message }}</p>
               {% endfor %}
           {% endif %}
        {% endwith %}
     
 
-        <!-- Login Form -->
-        <form action="{{ url_for('login') }}" method="post">
-            <input type="text" name="username" placeholder="Username" required>
-            <input type="password" name="password" placeholder="Password" required>
-            <button type="submit">Login</button>
-        </form>
+        <div id="login-section" class="form-section" style="display: {{ 'none' if show_register else 'block' }};">
+            <h2>Login</h2>
+            <form action="{{ url_for('login') }}" method="post">
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit" class="primary-btn">Login</button>
+            </form>
+            <p class="form-note">New user? <a href="#" class="toggle-link" id="show-register-link">Register here</a></p>
+        </div>
 
-        <hr style="margin: 20px 0; border: 1px solid white;">
+        <div id="register-section" class="form-section" style="display: {{ 'block' if show_register else 'none' }}; margin-top: 20px;">
+            <h2>Register</h2>
+            <form name="register" action="{{ url_for('register') }}" method="post">
+                <input type="text" name="new_username" placeholder="New Username" required>
+                <input type="email" name="new_email" placeholder="Email" required>
+                <input type="password" name="new_password" placeholder="New Password" required>
+                <button type="submit" class="primary-btn">Register</button>
+            </form>
+            <p class="form-note">Already have an account? <a href="#" class="toggle-link" id="show-login-link">Login here</a></p>
+        </div>
 
-        <h2 style="color: white;">New User? Register Below</h2>
-
-        <!-- Registration Form -->
-        <form action="{{ url_for('register') }}" method="post">
-            <input type="text" name="new_username" placeholder="New Username" required>
-            <input type="email" name="new_email" placeholder="Email" required>
-            <input type="password" name="new_password" placeholder="New Password" required>
-            <button type="submit">Register</button>
-        </form>
-        <hr style="margin: 20px 0; border: 1px solid white;">
+        <div class="divider"></div>
         <h3 style="color: white;">How To Use The Stock Prediction System.</h3>
         <div style="text-align: center; margin-top: 20px;">
             <a href="{{ url_for('tutorial') }}" class="how-it-works-btn">How It Works</a>
         </div>
         
-    </div>
-    
+        <script>
+            const registerLink = document.getElementById('show-register-link');
+            const registerSection = document.getElementById('register-section');
+            const loginSection = document.getElementById('login-section');
+
+            const loginLink = document.getElementById('show-login-link');
+
+            if (registerLink) {
+                registerLink.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    registerSection.style.display = 'block';
+                    loginSection.style.display = 'none';
+                    registerLink.textContent = 'Back to login';
+                });
+            }
+
+            if (loginLink) {
+                loginLink.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    registerSection.style.display = 'none';
+                    loginSection.style.display = 'block';
+                    registerLink.textContent = 'Register here';
+                });
+            }
+        </script>
 </body>
 </html>
 

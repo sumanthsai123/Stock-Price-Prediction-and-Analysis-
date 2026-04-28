@@ -10,175 +10,153 @@
 <body>
     {% if session.get("username") %}
     <div class="go-back">
-        <a href="{{ url_for('back_to_index') }}">predict again</a>
+        <a href="{{ url_for('back_to_index') }}">Predict again</a>
     </div>
     {% endif %}
 
     <div class="auth-links">
         {% if session.get("username") %}
             <p class="welcome-text">Welcome, {{ session.get("username") }}!</p>
-            <a href="{{ url_for('logout') }}">Logout</a>
+            <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
         {% else %}
-            <p style="color: red;">You are not logged in. <a href="{{ url_for('login') }}">Login here</a></p>
+            <p class="not-logged">You are not logged in. <a href="{{ url_for('login') }}">Login here</a></p>
         {% endif %}
     </div>
 
     {% if session.get("username") %}
     <div class="content">
-        <h1>Prediction Results</h1>
-        {% if entity_type == "Mutual Fund" %}
-        <h2 style="color: green;">Mutual Fund Prediction: {{ stock }}</h2>
-    {% else %}
-        <h2 style="color: rgb(245, 14, 45);">Stock Market Prediction: {{ stock }}</h2>
-    {% endif %}
-        {% if error_message %}
-        <h2 style="color: red;">{{ error_message }}</h2>
-        {% else %}
-            <h2>Predicted Closing Prices for the Next 10 Days</h2>
-            <ul>
-                {% for entry in predictions %}
-                <li><strong>{{ entry.Date }}</strong>: {{ entry.Predicted }}</li>
-                {% endfor %}
-            </ul>
+        <div class="results-card">
+            <div class="page-header">
+                <div class="header-text">
+                    <h1>Prediction Results</h1>
+                    <p class="subtitle">Forecast for the next 10 days with day count displayed before each value.</p>
+                </div>
+                <span class="status-badge {{ 'fund' if entity_type == 'Mutual Fund' else 'stock' }}">{{ entity_type }}</span>
+            </div>
 
-            {% if plots.next_1_day %}
-            <div class="plot">
-                <h3>Next 1-Day Prediction</h3>
-                <img src="data:image/png;base64,{{ plots.next_1_day }}" alt="Next 1-Day Prediction">
+            <div class="stock-details">
+                {% if entity_type == "Mutual Fund" %}
+                <h2>Mutual Fund Prediction: {{ stock }}</h2>
+                {% else %}
+                <h2>Stock Market Prediction: {{ stock }}</h2>
+                {% endif %}
             </div>
-            {% else %}
-            <p style="color: red;">Next 1-Day Prediction graph is missing.</p>
-            {% endif %}
-        
-           
-            <h2>Next 10 Days Prediction Graph</h2>
-            <img src="data:image/png;base64,{{ plots.next_10_days }}" alt="Next 10 Days Prediction">
-        
-            
 
-            {% if plots.actual_vs_predicted %}
-            <div class="plot">
-                <h3>Actual vs Predicted Prices</h3>
-                <img src="data:image/png;base64,{{ plots.actual_vs_predicted }}" alt="Actual vs Predicted Prices">
+            {% if error_message %}
+            <div class="error-card">
+                <p>{{ error_message }}</p>
             </div>
             {% else %}
-            <p style="color: red;">Actual vs Predicted Prices graph is missing.</p>
-            {% endif %}
-      
-        
-            {% if plots.closing_prices %}
-            <div class="plot">
-                <h3>Closing Prices</h3>
-                <img src="data:image/png;base64,{{ plots.closing_prices }}" alt="Closing Prices">
+            <section class="forecast-card">
+                <div class="forecast-header">
+                    <h2>Next 10 Days Forecast</h2>
+                    <p>Day count appears before each predicted price.</p>
+                </div>
+                <div class="table-wrapper">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>Date</th>
+                                <th>Predicted Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in predictions %}
+                            <tr>
+                                <td>Day {{ loop.index }}</td>
+                                <td>{{ entry.Date }}</td>
+                                <td>${{ entry.Predicted | round(2) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            {% set featured_title = 'Next 1 Day' if plots.next_1_day else 'Next 10 Days' if plots.next_10_days else 'Actual vs Predicted' if plots.actual_vs_predicted else 'Moving Averages' if plots.moving_averages else 'Closing Prices' %}
+            {% set featured_src = 'data:image/png;base64,' ~ plots.next_1_day if plots.next_1_day else 'data:image/png;base64,' ~ plots.next_10_days if plots.next_10_days else 'data:image/png;base64,' ~ plots.actual_vs_predicted if plots.actual_vs_predicted else 'data:image/png;base64,' ~ plots.moving_averages if plots.moving_averages else 'data:image/png;base64,' ~ plots.closing_prices %}
+
+            <div class="interactive-plots">
+                <div class="plot-thumbs">
+                    {% if plots.next_1_day %}
+                    <div class="plot-thumb active" data-title="Next 1 Day" data-src="data:image/png;base64,{{ plots.next_1_day }}">
+                        <img src="data:image/png;base64,{{ plots.next_1_day }}" alt="Next 1 Day">
+                        <span>Next 1 Day</span>
+                    </div>
+                    {% endif %}
+
+                    {% if plots.next_10_days %}
+                    <div class="plot-thumb {% if not plots.next_1_day %}active{% endif %}" data-title="Next 10 Days" data-src="data:image/png;base64,{{ plots.next_10_days }}">
+                        <img src="data:image/png;base64,{{ plots.next_10_days }}" alt="Next 10 Days">
+                        <span>Next 10 Days</span>
+                    </div>
+                    {% endif %}
+
+                    {% if plots.actual_vs_predicted %}
+                    <div class="plot-thumb {% if not plots.next_1_day and not plots.next_10_days %}active{% endif %}" data-title="Actual vs Predicted" data-src="data:image/png;base64,{{ plots.actual_vs_predicted }}">
+                        <img src="data:image/png;base64,{{ plots.actual_vs_predicted }}" alt="Actual vs Predicted">
+                        <span>Actual vs Predicted</span>
+                    </div>
+                    {% endif %}
+
+                    {% if plots.moving_averages %}
+                    <div class="plot-thumb {% if not plots.next_1_day and not plots.next_10_days and not plots.actual_vs_predicted %}active{% endif %}" data-title="Moving Averages" data-src="data:image/png;base64,{{ plots.moving_averages }}">
+                        <img src="data:image/png;base64,{{ plots.moving_averages }}" alt="Moving Averages">
+                        <span>Moving Averages</span>
+                    </div>
+                    {% endif %}
+
+                    {% if plots.closing_prices %}
+                    <div class="plot-thumb {% if not plots.next_1_day and not plots.next_10_days and not plots.actual_vs_predicted and not plots.moving_averages %}active{% endif %}" data-title="Closing Prices" data-src="data:image/png;base64,{{ plots.closing_prices }}">
+                        <img src="data:image/png;base64,{{ plots.closing_prices }}" alt="Closing Prices">
+                        <span>Closing Prices</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="featured-plot">
+                    <h3 id="featured-title">{{ featured_title }}</h3>
+                    <img id="featured-image" src="{{ featured_src }}" alt="Featured Plot">
+                </div>
             </div>
-            {% else %}
-            <p style="color: red;">Closing Prices graph is missing.</p>
-            {% endif %}
-            <form action="{{ url_for('submit_feedback') }}" method="post" class="feedback-form">
-                <label for="feedback">Your Feedback:</label>
-                <textarea id="feedback" name="feedback" required></textarea>
-                <button type="submit">Submit Feedback</button>
-            </form>
-            
-            {% if feedbacks %}
-            <h2>User Feedback</h2>
-            <ul>
-                {% for fb in feedbacks %}
-                <li><strong>{{ fb.username }}</strong>: {{ fb.feedback }}</li>
-                {% endfor %}
-            </ul>
-            {% endif %}
-            
-            {% if plots.moving_averages %}
-            <div class="plot">
-                <h3>Moving Averages</h3>
-                <img src="data:image/png;base64,{{ plots.moving_averages }}" alt="Moving Averages">
+
+            <div class="feedback-section">
+                <form action="{{ url_for('submit_feedback') }}" method="post" class="feedback-form">
+                    <label for="feedback">Your Feedback</label>
+                    <textarea id="feedback" name="feedback" placeholder="Share your experience..." required></textarea>
+                    <button type="submit" class="submit-btn">Submit Feedback</button>
+                </form>
+
+                {% if feedbacks %}
+                <div class="feedback-list">
+                    <h2>User Feedback</h2>
+                    <ul>
+                        {% for fb in feedbacks %}
+                        <li><strong>{{ fb.username }}</strong> — {{ fb.feedback }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
             </div>
-            {% else %}
-            <p style="color: red;">Moving Averages graph is missing.</p>
+            <script>
+                const thumbs = document.querySelectorAll('.plot-thumb');
+                const featuredImage = document.getElementById('featured-image');
+                const featuredTitle = document.getElementById('featured-title');
+
+                thumbs.forEach(thumb => {
+                    thumb.addEventListener('click', () => {
+                        thumbs.forEach(item => item.classList.remove('active'));
+                        thumb.classList.add('active');
+                        featuredImage.src = thumb.dataset.src;
+                        featuredTitle.textContent = thumb.dataset.title;
+                    });
+                });
+            </script>
             {% endif %}
-        {% endif %}
+        </div>
     </div>
     {% endif %}
-
-    <style>
-    /* Feedback Form Styling */
-    .feedback-form {
-        background: rgba(255, 255, 255, 0.1);
-        padding: 15px;
-        border-radius: 8px;
-        max-width: 800px;
-        margin: auto;
-        text-align: center;
-    }
-
-    .feedback-form label {
-        color: white;
-        font-weight: bold;
-        display: block;
-        margin-bottom: 5px;
-    }
-
-    .feedback-form textarea {
-    width: 90%;
-    height: 120px; /* Increased height */
-    border: none;
-    border-radius: 5px;
-    padding: 8px;
-    font-size: 14px;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    resize: none;
-}
-
-    .feedback-form textarea::placeholder {
-        color: rgba(255, 255, 255, 0.7);
-    }
-
-    .feedback-form button {
-        background: #4CAF50;
-        color: white;
-        border: none;
-        padding: 8px 15px;
-        margin-top: 10px;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: 0.3s;
-    }
-
-    .feedback-form button:hover {
-        background: #45a049;
-    }
-
-    /* Feedback List Styling */
-    h2 {
-        text-align: center;
-        color: white;
-        margin-top: 20px;
-    }
-
-    ul {
-        list-style: none;
-        padding: 0;
-        max-width: 400px;
-        margin: auto;
-    }
-
-    ul li {
-        background: rgba(255, 255, 255, 0.1);
-        padding: 10px;
-        margin-bottom: 10px;
-        border-radius: 5px;
-        color: white;
-    }
-
-    ul li strong {
-        color: #FFD700;
-    }
-
-</style>
-    
-   
 </body>
 </html>
 
